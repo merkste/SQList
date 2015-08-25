@@ -3,22 +3,25 @@ from operator import itemgetter
 
 # SELECT('*', FROM=persons, WHERE={id: 1, age:2})
 # SELECT('*', FROM=persons, WHERE=(OR(NOT({id: 1, age:2}), {age: (lambda age: <=2))}))
-def SELECT(COLUMNS, FROM, WHERE):
-  COLUMNS = None if COLUMNS == '*' else COLUMNS
-  return project_columns(select_rows(FROM, WHERE), COLUMNS)
+def SELECT(COLUMNS, FROM, WHERE=None):
+  table = select_rows(FROM, WHERE) if WHERE else FROM
+  if COLUMNS in ['*', (), None]:
+    return table
+  return project_columns(table, COLUMNS)
 
-def project_columns(FROM, COLUMNS=()):
-  rows = iter(FROM)
+def project_columns(table, columns):
+  rows = iter(table)
   head = rows.next()
-  columns = COLUMNS or head
   indices = get_column_indices(head);
   getter = itemgetter(*(indices[col] for col in columns))
   return imap(getter, chain([head], rows))
 
-def select_rows(FROM, WHERE):
-  rows = iter(FROM)
+def select_rows(table, column_spec):
+  if isinstance(column_spec, dict):
+    return select_rows(table, AND(column_spec))
+  bind_matchers = column_spec
+  rows = iter(table)
   head = rows.next()
-  bind_matchers = AND(WHERE) if isinstance(WHERE, dict) else WHERE
   
   # 1. resolve column indices
   indices = get_column_indices(head)  
@@ -97,6 +100,6 @@ persons = (('id', 'name', 'age', 'sex'),\
            (2, 'Paula', 12, 'female'),\
            (3, 'Marcus', 10, 'male'))
 
-result = SELECT(('name', 'id'), FROM=persons, WHERE=NOT({'age': lambda age: age>10}))
+result = SELECT(None, FROM=persons, WHERE=NOT({'age': lambda age: age>10}))
 for row in result:
   print row
