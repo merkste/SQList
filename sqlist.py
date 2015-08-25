@@ -1,17 +1,27 @@
 from itertools import chain, ifilter, imap
 from operator import itemgetter
 
-# SELECT('*', FROM=persons, WHERE={id: 1, age:2})
-# SELECT('*', FROM=persons, WHERE=(OR(NOT({id: 1, age:2}), {age: (lambda age: <=2))}))
 def SELECT(COLUMNS, FROM, WHERE=None):
-  """Similarily to SQL, select and project all rows from a table matching the constraints."""
+  """Similarily to SQL, select and project all rows from a table matching the constraints.
+  
+  Return an iterable of rows.
+  Constraints are given as column specs. A column spec is
+  - a dictionary that maps column names to expected values and test functions, or
+  - a complex spec built with NOT, AND, and OR.
+  WHERE=some_dict is short for WHERE=AND(some_dict)
+  
+  Arguments:
+  COLUMNS -- a list of columns to project to, '*', (), and None are short for all columns
+  FROM -- a table given as an iterable of rows (tuples, lists), first row is the table head
+  
+  Keyword arguments:
+  WHERE -- a column spec built from dictionaries using NOT, AND, and OR (default: None)
+  """
   table = select_rows(FROM, WHERE) if WHERE else FROM
   if COLUMNS in ['*', (), None]:
     return table
   return project_columns(table, COLUMNS)
 
-# NOT: dict -> indices -> (indices -> row -> boolean)
-# NOT: (indices -> row -> boolean) -> (indices -> row -> boolean)
 def NOT(column_specs):
   """Negate a column_spec and return a binding function."""
   if callable(column_specs):
@@ -21,17 +31,13 @@ def NOT(column_specs):
     # dict
     return NOT(AND(column_specs))
 
-# AND: (indices -> row -> boolean)+ -> (indices -> row -> boolean)
-# AND: dict+ -> (indices -> row -> boolean)
 def AND(*column_specs):
-  """Apply logical AND to a list of column_specs and return a binding function."""
+  """Apply logical AND to a list of column specs and return a binding function."""
   bind_matchers = as_binding_functions(column_specs)
   return lambda indices: and_matcher(bind_matchers, indices)
 
-# OR: (indices -> row -> boolean)+ -> (indices -> row -> boolean)
-# OR: dict+ -> (indices -> row -> boolean)
 def OR(*column_specs):
-  """Apply logical OR to a list of column_specs and return a binding function."""
+  """Apply logical OR to a list of column specs and return a binding function."""
   bind_matchers = as_binding_functions(column_specs)
   return lambda indices: or_matcher(bind_matchers, indices)
 
@@ -44,7 +50,7 @@ def project_columns(table, columns):
   return imap(getter, chain([head], rows))
 
 def select_rows(table, column_spec):
-  """Select all rows which entries match the column_spec."""
+  """Select all rows which entries match the column spec."""
   if isinstance(column_spec, dict):
     return select_rows(table, AND(column_spec))
   bind_matchers = column_spec
@@ -75,12 +81,7 @@ def or_matcher(bind_matchers, indices):
   return lambda row: any(matcher(row) for matcher in matchers);
 
 def as_binding_functions(column_specs):
-  if all(callable(spec) for spec in column_specs):
-    # (indices -> row -> boolean)+
-    return column_tests
-  else:
-    # dict+
-    return chain(*(all_curry_bind_matcher(all_as_matcher(spec)) for spec in column_specs))
+  return chain(*([spec] if callable(spec) else all_curry_bind_matcher(all_as_matcher(spec)) for spec in column_specs))
 
 def all_curry_bind_matcher(column_matchers):
   return (curry_bind_matcher(col, matcher) for col, matcher in column_matchers.iteritems())
@@ -101,11 +102,22 @@ def as_matcher(func_or_value):
   else:
     return lambda val: val == func_or_value
 
-persons = (('id', 'name', 'age', 'sex'),\
-           (1, 'Paul', 10, 'male'),\
-           (2, 'Paula', 12, 'female'),\
-           (3, 'Marcus', 10, 'male'))
+def examples():
+  persons = (('id', 'name', 'age', 'sex'),\
+             (1, 'Paul', 10, 'male'),\
+             (2, 'Paula', 12, 'female'),\
+             (3, 'Martin', 10, 'male'),\
+             (4, 'Franz', 13, 'male'),\
+             (5, 'Ursula', 14, 'female'))
 
-result = SELECT(None, FROM=persons, WHERE=NOT({'age': lambda age: age>10}))
-for row in result:
-  print row
+  result = SELECT('*', FROM=persons, WHERE={'sex': 'female'})
+  for row in result:
+    print row
+  print
+  
+  result = SELECT(('name', 'id'), FROM=persons, WHERE=AND({'age': lambda age: age>10}, NOT({'sex': 'female'})))
+  for row in result:
+    print row
+  print
+
+examples()
