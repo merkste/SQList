@@ -120,4 +120,5 @@ def examples():
     print row
   print
 
-examples()
+if __name__ == "__main__":
+  examples()
