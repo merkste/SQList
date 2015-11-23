@@ -1,6 +1,19 @@
 from itertools import chain, ifilter, imap
 from operator import itemgetter
 
+def SELECT_DISTINCT(COLUMNS, FROM, WHERE=None):
+  """Deduplicate selected rows. See also SELECT.
+
+  Return an iterable of rows, each row as a tuple.
+  """
+  table = SELECT(COLUMNS, FROM, WHERE)
+  seen = set()
+  for row in table:
+    row = tuple(row)
+    if row not in seen:
+      seen.add(row)
+      yield row
+
 def SELECT(COLUMNS, FROM, WHERE=None):
   """Similarily to SQL, select and project all rows from a table matching the constraints.
   
