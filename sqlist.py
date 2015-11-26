@@ -1,3 +1,4 @@
+from collections import Sequence
 from itertools import chain, ifilter, imap
 from operator import itemgetter
 
@@ -16,17 +17,17 @@ def SELECT_DISTINCT(COLUMNS, FROM, WHERE=None):
 
 def SELECT(COLUMNS, FROM, WHERE=None):
   """Similarily to SQL, select and project all rows from a table matching the constraints.
-  
+
   Return an iterable of rows.
   Constraints are given as column specs. A column spec is
   - a dictionary that maps column names to expected values and test functions, or
   - a complex spec built with NOT, AND, and OR.
   WHERE=some_dict is short for WHERE=AND(some_dict)
-  
+
   Arguments:
   COLUMNS -- a list of columns to project to, '*', (), and None are short for all columns
   FROM -- a table given as an iterable of rows (tuples, lists), first row is the table head
-  
+
   Keyword arguments:
   WHERE -- a column spec built from dictionaries using NOT, AND, and OR (default: None)
   """
@@ -56,26 +57,31 @@ def OR(*column_specs):
 
 def project_columns(table, columns):
   """Project the table to the specified columns."""
-  rows = iter(table)
-  head = rows.next()
+  head, data = head_tail(table)
   indices = column_indices(head);
-  getter = itemgetter(*(indices[col] for col in columns))
-  return imap(getter, chain([head], rows))
+  getter = project(*(indices[col] for col in columns))
+  return imap(getter, chain([head], data))
+
+def project(*items):
+  if len(items) == 1:
+    item = items[0]
+    return lambda object : (object[item],) 
+  else:
+    return itemgetter(*items)
 
 def select_rows(table, column_spec):
   """Select all rows which entries match the column spec."""
   if isinstance(column_spec, dict):
     return select_rows(table, AND(column_spec))
   bind_matchers = column_spec
-  rows = iter(table)
-  head = rows.next()
-  
+  head, data = head_tail(table)
+
   # 1. resolve column indices
   indices = column_indices(head)  
   # 2. bind matchers
   matchers = bind_matchers(indices) if bind_matchers else (lambda row: True)
   # 3. filter
-  return chain([head], ifilter(matchers, rows))
+  return chain([head], ifilter(matchers, data))
 
 def column_indices(head):
   """Build a dictionary of the column indices."""
@@ -115,6 +121,13 @@ def as_matcher(func_or_value):
   else:
     return lambda val: val == func_or_value
 
+def head_tail(iterable):
+  if isinstance(iterable, Sequence):
+    return iterable[0], iterable[1:]
+  else:
+    iterator = iter(iterable)
+    return iterator.next(), iterator
+
 def examples():
   persons = (('id', 'name', 'age', 'sex'),\
              (1, 'Paul', 10, 'male'),\
@@ -127,7 +140,7 @@ def examples():
   for row in result:
     print row
   print
-  
+
   result = SELECT(('name', 'id'), FROM=persons, WHERE=AND({'age': lambda age: age>10}, NOT({'sex': 'female'})))
   for row in result:
     print row
