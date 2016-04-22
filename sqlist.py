@@ -1,4 +1,5 @@
 from collections import Sequence
+from inspect import getargspec
 from itertools import chain, ifilter, imap
 from operator import itemgetter
 
@@ -109,17 +110,29 @@ def curry_bind_matcher(col, matcher):
   return lambda indices: bind_matcher(col, matcher, indices)
 
 def bind_matcher(col, column_matcher, indices):
-  index = indices[col];
-  return lambda row: column_matcher(row[index])
+  if isinstance(col, basestring):
+    return lambda row: column_matcher(row[indices[col]])
+  else:
+    get_cols = project(*(indices[c] for c in col))
+    return lambda row: column_matcher(*get_cols(row))
 
 def all_as_matcher(column_specs):
-  return {col : as_matcher(spec) for col, spec in column_specs.iteritems()}
+  return {col : as_matcher(col, spec) for col, spec in column_specs.iteritems()}
 
-def as_matcher(func_or_value):
+def as_matcher(col, func_or_value):
+  col = (col, ) if isinstance(col, basestring) else col
   if callable(func_or_value):
+    argspec = getargspec(func_or_value)
+    assert len(col) <= len(argspec.args) + (float('infinity') if argspec.varargs else 0)
     return func_or_value
   else:
-    return lambda val: val == func_or_value
+    if len(col) == 1:
+      return lambda val: val == func_or_value
+    else:
+      return lambda *vals: equals(func_or_value, *vals)
+
+def equals(*vals):
+  return vals and (vals[0], )*len(vals) == vals
 
 def head_tail(iterable):
   if isinstance(iterable, Sequence):
@@ -129,19 +142,37 @@ def head_tail(iterable):
     return iterator.next(), iterator
 
 def examples():
-  persons = (('id', 'name', 'age', 'sex'),\
-             (1, 'Paul', 10, 'male'),\
-             (2, 'Paula', 12, 'female'),\
-             (3, 'Martin', 10, 'male'),\
-             (4, 'Franz', 13, 'male'),\
-             (5, 'Ursula', 14, 'female'))
+  persons = (('id', 'first_name', 'last_name', 'age', 'sex'),\
+             (1, 'Paul', 'Paul', 10, 'male'),\
+             (2, 'Paula', 'Meier', 12, 'female'),\
+             (3, 'Martin', None, 10, 'male'),\
+             (4, 'Franz', 'Franz', 13, 'male'),\
+             (5, 'Ursula', 'Leine', 14, 'female'))
+  print "Table"
+  for row in persons:
+    print row
+  print
 
+  print "SELECT('*', FROM=persons, WHERE={'sex': 'female'})"
   result = SELECT('*', FROM=persons, WHERE={'sex': 'female'})
   for row in result:
     print row
   print
 
-  result = SELECT(('name', 'id'), FROM=persons, WHERE=AND({'age': lambda age: age>10}, NOT({'sex': 'female'})))
+  print "SELECT(('first_name', 'id'), FROM=persons, WHERE=AND({'age': lambda age: age>10}, NOT({'sex': 'female'})))"
+  result = SELECT(('first_name', 'id'), FROM=persons, WHERE=AND({'age': lambda age: age>10}, NOT({'sex': 'female'})))
+  for row in result:
+    print row
+  print
+
+  print "SELECT(('first_name', 'id'), FROM=persons, WHERE={('first_name', 'last_name') : lambda f, l: f==l})"
+  result = SELECT(('first_name', 'id'), FROM=persons, WHERE={('first_name', 'last_name') : lambda f, l: f==l})
+  for row in result:
+    print row
+  print
+
+  print "SELECT(('first_name', 'id'), FROM=persons, WHERE={('first_name', 'last_name') : 'Paul'})"
+  result = SELECT(('first_name', 'id'), FROM=persons, WHERE={('first_name', 'last_name') : 'Paul'})
   for row in result:
     print row
   print
