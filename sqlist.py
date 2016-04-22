@@ -148,10 +148,10 @@ def examples():
              (3, 'Martin', None, 10, 'male'),\
              (4, 'Franz', 'Franz', 13, 'male'),\
              (5, 'Ursula', 'Leine', 14, 'female'))
-  print "Table"
+  print 'persons = ['
   for row in persons:
-    print row
-  print
+    print str(row) + ','
+  print ']\n'
 
   print "SELECT('*', FROM=persons, WHERE={'sex': 'female'})"
   result = SELECT('*', FROM=persons, WHERE={'sex': 'female'})
