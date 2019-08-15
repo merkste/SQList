@@ -7,12 +7,12 @@ Processing happens lazy which allows to handle huge data sets or even infinite s
 ## Example
 First we create a table as nested tuples.
 ```
-persons = (('id', 'first_name', 'last_name', 'age', 'sex'),\
-           (1,    'Paul',       'Paul',      10,    'male'),\
-           (2,    'Paula',      'Meier',     12,    'female'),\
-           (3,    'Martin',      None,       10,    'male'),\
-           (4,    'Franz',      'Franz',     13,    'male'),\
-           (5,    'Ursula',     'Leine',     14,    'female'))
+  persons = (('id', 'first_name', 'last_name', 'age', 'sex'),\
+             (1,    'Paul',       'Paul',      10,    'male'),\
+             (2,    'Paula',      'Meier',     12,    'female'),\
+             (3,    'Martin',      None,       10,    'male'),\
+             (4,    'Franz',      'Franz',     13,    'male'),\
+             (5,    'Ursula',     'Leine',     14,    'female'))
 ```
 
 We use the function `SELECT` to retrieve all females from the table `persons`.
@@ -40,3 +40,11 @@ More complex column specifications are composed using the _logic operators_ `NOT
 ```
   SELECT(('first_name', 'id'), FROM=persons, WHERE=AND({'age': lambda age: age>10}, NOT({'sex': 'female'})))
 ```
+
+## Command Line Interface
+SQList offers a cmdl interface to query CSV data from stdin and write to stdout.
+Suppose the persons table is stored in a .csv file.
+```
+  python sqlist.py "SELECT('*', WHERE={'sex': 'female'})" < persons.csv
+```
+See `python sqlist.py -h` for available options.
