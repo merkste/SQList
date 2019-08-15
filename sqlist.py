@@ -1,3 +1,6 @@
+import csv
+import argparse
+import sys
 from collections import Sequence
 from inspect import getargspec
 from itertools import chain, ifilter, imap
@@ -177,5 +180,23 @@ def examples():
     print row
   print
 
-if __name__ == "__main__":
-  examples()
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser(description='Execute query on CSV data from stdin. Omit FROM keyword in query, e.g., SELECT("*", WHERE=NOT({"col_1" : "None"})).')
+  parser.add_argument('query', metavar='<query>', type=str, help='commands: SELECT, SELECT_DISTINCT, NOT, AND, and OR')
+  parser.add_argument('-e', '--example', action='store_true', help='print example queries')
+  parser.add_argument('-d', '--delimiter', metavar='<char>', help='delimiter in CSV input')
+  parser.add_argument('-o', '--output', metavar='<file>', type=argparse.FileType('w'), default=sys.stdout, help='output file')
+  args = parser.parse_args()
+
+  if args.example:
+    examples()
+  else:
+    reader = csv.reader(sys.stdin) if args.delimiter is None else csv.reader(sys.stdin, delimiter=args.delimiter)
+    bindings = {'SELECT'          : lambda COLUMNS, WHERE=None : SELECT(COLUMNS, reader, WHERE), \
+                'SELECT_DISTINCT' : lambda COLUMNS, WHERE=None : SELECT_DISTINCT(COLUMNS, reader, WHERE), \
+                'NOT'             : NOT, \
+                'AND'             : AND, \
+                'OR'              : OR}
+    writer = csv.writer(args.output) if args.delimiter is None else csv.writer(args.output, delimiter=args.delimiter)
+    for row in eval(args.query, bindings):
+      writer.writerow(row)
