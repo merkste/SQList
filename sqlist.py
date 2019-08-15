@@ -206,8 +206,8 @@ def parse_literal(string):
     return string
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='Execute an sqlist query on CSV data from stdin', epilog='Available commands:\n  SELECT, SELECT_DISTINCT, NOT, AND, and OR\nOmit FROM keyword in query:\n  SELECT("*", WHERE=NOT({"col_1" : "None"}))', formatter_class=argparse.RawDescriptionHelpFormatter)
-  parser.add_argument('query', metavar='<query>', type=str, help='an sqlist query expression')
+  parser = argparse.ArgumentParser(description='Execute an SQList query on CSV data from stdin', epilog='Available commands:\n  SELECT, SELECT_DISTINCT, NOT, AND, and OR\nOmit FROM keyword in query:\n  SELECT("*", WHERE=NOT({"col_1" : "None"}))', formatter_class=argparse.RawDescriptionHelpFormatter)
+  parser.add_argument('query', metavar='<query>', type=str, help='an SQList query expression')
   parser.add_argument('-e', '--examples', action=PrintExamples, help='print example queries')
   parser.add_argument('-d', '--delimiter', metavar='<char>', help='delimiter in CSV input')
   parser.add_argument('-l', '--literals', action='store_true', help='parse values as python literals')
