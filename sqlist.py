@@ -146,59 +146,72 @@ def head_tail(iterable):
     iterator = iter(iterable)
     return iterator.next(), iterator
 
-def examples():
-  persons = (('id', 'first_name', 'last_name', 'age', 'sex'),\
-             (1, 'Paul', 'Paul', 10, 'male'),\
-             (2, 'Paula', 'Meier', 12, 'female'),\
-             (3, 'Martin', None, 10, 'male'),\
-             (4, 'Franz', 'Franz', 13, 'male'),\
-             (5, 'Ursula', 'Leine', 14, 'female'))
-  print 'persons = ['
-  for row in persons:
-    print str(row) + ','
-  print ']\n'
+class PrintExamples(argparse.Action):
 
-  print "SELECT('*', FROM=persons, WHERE={'sex': 'female'})"
-  result = SELECT('*', FROM=persons, WHERE={'sex': 'female'})
-  for row in result:
-    print row
-  print
+  def __init__(self,
+               option_strings,
+               dest=argparse.SUPPRESS,
+               default=argparse.SUPPRESS,
+               help=None):
+      super(PrintExamples, self).__init__(
+          option_strings=option_strings,
+          dest=dest,
+          default=default,
+          nargs=0,
+          help=help)
 
-  print "SELECT(('first_name', 'id'), FROM=persons, WHERE={('first_name', 'last_name') : 'Paul'})"
-  result = SELECT(('first_name', 'id'), FROM=persons, WHERE={('first_name', 'last_name') : 'Paul'})
-  for row in result:
-    print row
-  print
+  def __call__(self, parser, namespace, values, option_string=None):
+    persons = (('id', 'first_name', 'last_name', 'age', 'sex'),\
+               (1, 'Paul', 'Paul', 10, 'male'),\
+               (2, 'Paula', 'Meier', 12, 'female'),\
+               (3, 'Martin', None, 10, 'male'),\
+               (4, 'Franz', 'Franz', 13, 'male'),\
+               (5, 'Ursula', 'Leine', 14, 'female'))
 
-  print "SELECT(('first_name', 'id'), FROM=persons, WHERE={('first_name', 'last_name') : lambda f, l: f==l})"
-  result = SELECT(('first_name', 'id'), FROM=persons, WHERE={('first_name', 'last_name') : lambda f, l: f==l})
-  for row in result:
-    print row
-  print
+    print 'persons = ['
+    for row in persons:
+      print str(row) + ','
+    print ']\n'
 
-  print "SELECT(('first_name', 'id'), FROM=persons, WHERE=AND({'age': lambda age: age>10}, NOT({'sex': 'female'})))"
-  result = SELECT(('first_name', 'id'), FROM=persons, WHERE=AND({'age': lambda age: age>10}, NOT({'sex': 'female'})))
-  for row in result:
-    print row
-  print
+    print "SELECT('*', FROM=persons, WHERE={'sex': 'female'})"
+    result = SELECT('*', FROM=persons, WHERE={'sex': 'female'})
+    for row in result:
+      print row
+    print
+
+    print "SELECT(('first_name', 'id'), FROM=persons, WHERE={('first_name', 'last_name') : 'Paul'})"
+    result = SELECT(('first_name', 'id'), FROM=persons, WHERE={('first_name', 'last_name') : 'Paul'})
+    for row in result:
+      print row
+    print
+
+    print "SELECT(('first_name', 'id'), FROM=persons, WHERE={('first_name', 'last_name') : lambda f, l: f==l})"
+    result = SELECT(('first_name', 'id'), FROM=persons, WHERE={('first_name', 'last_name') : lambda f, l: f==l})
+    for row in result:
+      print row
+    print
+
+    print "SELECT(('first_name', 'id'), FROM=persons, WHERE=AND({'age': lambda age: age>10}, NOT({'sex': 'female'})))"
+    result = SELECT(('first_name', 'id'), FROM=persons, WHERE=AND({'age': lambda age: age>10}, NOT({'sex': 'female'})))
+    for row in result:
+      print row
+
+    parser.exit()
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(description='Execute query on CSV data from stdin. Omit FROM keyword in query, e.g., SELECT("*", WHERE=NOT({"col_1" : "None"})).')
-  parser.add_argument('query', metavar='<query>', type=str, help='commands: SELECT, SELECT_DISTINCT, NOT, AND, and OR')
-  parser.add_argument('-e', '--example', action='store_true', help='print example queries')
+  parser = argparse.ArgumentParser(description='Execute an sqlist query on CSV data from stdin', epilog='Available commands:\n  SELECT, SELECT_DISTINCT, NOT, AND, and OR\nOmit FROM keyword in query:\n  SELECT("*", WHERE=NOT({"col_1" : "None"}))', formatter_class=argparse.RawDescriptionHelpFormatter)
+  parser.add_argument('query', metavar='<query>', type=str, help='an sqlist query expression')
+  parser.add_argument('-e', '--examples', action=PrintExamples, help='print example queries')
   parser.add_argument('-d', '--delimiter', metavar='<char>', help='delimiter in CSV input')
   parser.add_argument('-o', '--output', metavar='<file>', type=argparse.FileType('w'), default=sys.stdout, help='output file')
   args = parser.parse_args()
 
-  if args.example:
-    examples()
-  else:
-    reader = csv.reader(sys.stdin) if args.delimiter is None else csv.reader(sys.stdin, delimiter=args.delimiter)
-    bindings = {'SELECT'          : lambda COLUMNS, WHERE=None : SELECT(COLUMNS, reader, WHERE), \
-                'SELECT_DISTINCT' : lambda COLUMNS, WHERE=None : SELECT_DISTINCT(COLUMNS, reader, WHERE), \
-                'NOT'             : NOT, \
-                'AND'             : AND, \
-                'OR'              : OR}
-    writer = csv.writer(args.output) if args.delimiter is None else csv.writer(args.output, delimiter=args.delimiter)
-    for row in eval(args.query, bindings):
-      writer.writerow(row)
+  reader = csv.reader(sys.stdin) if args.delimiter is None else csv.reader(sys.stdin, delimiter=args.delimiter)
+  bindings = {'SELECT'          : lambda COLUMNS, WHERE=None : SELECT(COLUMNS, reader, WHERE), \
+              'SELECT_DISTINCT' : lambda COLUMNS, WHERE=None : SELECT_DISTINCT(COLUMNS, reader, WHERE), \
+              'NOT'             : NOT, \
+              'AND'             : AND, \
+              'OR'              : OR}
+  writer = csv.writer(args.output) if args.delimiter is None else csv.writer(args.output, delimiter=args.delimiter)
+  for row in eval(args.query, bindings):
+    writer.writerow(row)
