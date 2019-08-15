@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
-import csv
 import argparse
+import csv
 import sys
+from ast import literal_eval
 from collections import Sequence
 from inspect import getargspec
 from itertools import chain, ifilter, imap
@@ -198,20 +199,31 @@ class PrintExamples(argparse.Action):
 
     parser.exit()
 
+def parse_literal(string):
+  try:
+    return literal_eval(string)
+  except ValueError:
+    return string
+
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Execute an sqlist query on CSV data from stdin', epilog='Available commands:\n  SELECT, SELECT_DISTINCT, NOT, AND, and OR\nOmit FROM keyword in query:\n  SELECT("*", WHERE=NOT({"col_1" : "None"}))', formatter_class=argparse.RawDescriptionHelpFormatter)
   parser.add_argument('query', metavar='<query>', type=str, help='an sqlist query expression')
   parser.add_argument('-e', '--examples', action=PrintExamples, help='print example queries')
   parser.add_argument('-d', '--delimiter', metavar='<char>', help='delimiter in CSV input')
+  parser.add_argument('-l', '--literals', action='store_true', help='parse values as python literals')
   parser.add_argument('-o', '--output', metavar='<file>', type=argparse.FileType('w'), default=sys.stdout, help='output file')
   args = parser.parse_args()
 
   reader = csv.reader(sys.stdin) if args.delimiter is None else csv.reader(sys.stdin, delimiter=args.delimiter)
-  bindings = {'SELECT'          : lambda COLUMNS, WHERE=None : SELECT(COLUMNS, reader, WHERE), \
-              'SELECT_DISTINCT' : lambda COLUMNS, WHERE=None : SELECT_DISTINCT(COLUMNS, reader, WHERE), \
+  writer = csv.writer(args.output) if args.delimiter is None else csv.writer(args.output, delimiter=args.delimiter)
+
+  csv = ([parse_literal(val) for val in row] for row in reader) if args.literals else reader
+
+  bindings = {'SELECT'          : lambda COLUMNS, WHERE=None : SELECT(COLUMNS, csv, WHERE), \
+              'SELECT_DISTINCT' : lambda COLUMNS, WHERE=None : SELECT_DISTINCT(COLUMNS, csv, WHERE), \
               'NOT'             : NOT, \
               'AND'             : AND, \
               'OR'              : OR}
-  writer = csv.writer(args.output) if args.delimiter is None else csv.writer(args.output, delimiter=args.delimiter)
+
   for row in eval(args.query, bindings):
     writer.writerow(row)
