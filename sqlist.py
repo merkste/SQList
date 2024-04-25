@@ -120,7 +120,7 @@ def or_matcher(bind_matchers, indices):
 
 
 def as_binding_functions(column_specs):
-  return chain(*([spec] if callable(spec) else all_curry_bind_matcher(all_as_matcher(spec)) for spec in column_specs))
+  return list(chain.from_iterable([spec] if callable(spec) else all_curry_bind_matcher(all_as_matcher(spec)) for spec in column_specs))
 
 
 def all_curry_bind_matcher(column_matchers):
